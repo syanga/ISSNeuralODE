@@ -1,6 +1,9 @@
-using ProgressBars, Printf
+using ProgressBars, Printf, LinearAlgebra, Random
 
 include("src/StableDynamics.jl")
+
+# set random seed
+Random.seed!(0);
 
 
 """ Generate synthetic training data """
@@ -9,45 +12,50 @@ if ~ispath(datapath)
     mkpath(datapath)
 end
 
-# specify dynamics
-function f(x,u)
-    x₁,x₂,x₃ = x
-    u₁,u₂ = u
-    f₁ = -x₁-2x₁^3+(1+x₁^2)*u₁^2
-    f₂ = -x₂+x₂^2+u₂
-    f₃ = -x₃+u₂
-    return [f₁, f₂, f₃]
+n, m = 3, 2
+
+function sample_params(n, m)
+    function _sample()
+        W = randn(n, n)
+        A = randn(n, n)
+        B = randn(n, m)
+        return W, A, B
+    end
+    W, A, B = _sample()
+    while maximum(eigvals(W*A-I(n) + A'*W'-I(n))) >= 0
+        W, A, B = _sample()
+    end
+    return W,A,B
 end
 
-A = [1 -1 2; 2 3 -1]
-function h(x)
-    return x
+W, A, B = sample_params(n, m)
+
+# specify dynamics
+function f(x,u)
+    return -x + W*tanh.(A*x + B*u)
 end
 
 # data parameters
-t_max = 20.0
-num_knots = 2
+t_max = 50.0
+num_knots = 20
 num_samples = 300
-δₜ = 0.05
+δₜ = 0.1
 
 # generate training data
 # size (data dimension, time horizon, num_samples) 
 times = collect(0.0:δₜ:t_max)
-udata = zeros(2, length(times), num_samples)
-ydata = zeros(3, length(times), num_samples)
+udata = zeros(m, length(times), num_samples)
+ydata = zeros(n, length(times), num_samples)
 
 @printf "Generating training data..."
 for i in ProgressBar(1:num_samples)
     # generate input signal
-    tspan = (0.0,t_max)
+    tspan = (0.0, t_max)
     knots = vcat(0.0, sort(t_max*rand(num_knots-2)), t_max)
 
     peaks = zeros(2, num_knots)
     for j=1:num_knots
-        peaks[:,j] = 0.01*randn(2)
-        if j>1
-            peaks[:,j] += peaks[:,j-1]
-        end
+        peaks[:,j] = 2.0*(rand(2) .- 0.5)
     end
 
     u = (t) -> linear_interpolate(t, knots, peaks)
@@ -58,18 +66,33 @@ for i in ProgressBar(1:num_samples)
 
     # solve controlled ODE
     prob = ODEProblem((x,p,t) -> f(x, u(t)), x₀, tspan)
-    x = Array(solve(prob, saveat=times, reltol=1e-6, absol=1e-9))
-    y = h(x)
+    y = Array(solve(prob, saveat=times, reltol=1e-6, absol=1e-9))
 
     for (j,s) in enumerate(times)
         udata[:,j,i] = u(s)
     end
+
     ydata[:,:,i] = y
 end
 
 # dilate time
-t_scale = 20.0
+t_scale = 10.0
 times *= t_scale
+
+# scale inputs and outputs
+umin = minimum(udata, dims=[2,3])
+umax = maximum(udata, dims=[2,3])
+ymin = minimum(ydata, dims=[2,3])
+ymax = maximum(ydata, dims=[2,3])
+
+uscale = 0.5*(umax-umin)
+yscale = 0.5*(ymax-ymin)
+
+ubias = -umin./uscale .- 1
+ybias = -ymin./yscale .- 1
+
+udata = udata./uscale .+ ubias
+ydata = ydata./yscale .+ ybias
 
 dataset = Dict([
     ("t", times),
@@ -79,10 +102,10 @@ dataset = Dict([
 
 metadata = Dict([
     ("dt", δₜ),
-    ("u_scale", ones(2)),
-    ("u_bias", zeros(2)),
-    ("y_scale", ones(3)),
-    ("y_bias", zeros(3)),
+    ("u_scale", uscale),
+    ("u_bias", ubias),
+    ("y_scale", yscale),
+    ("y_bias", ybias),
     ("t_scale_factor", 1.0/t_scale),
 ])
 

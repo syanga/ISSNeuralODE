@@ -45,6 +45,7 @@
                 lds_condition_ctrnn1
 """
 
+using DiffEqFlux, Flux
 import DiffEqFlux: paramlength, initial_params
 using DifferentialEquations, DiffEqFlux, DiffEqSensitivity, SteadyStateDiffEq, Flux, Zygote, Random
 using IterTools: ncycle
