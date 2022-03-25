@@ -38,7 +38,7 @@ end
 # data parameters
 t_max = 50.0
 num_knots = 20
-num_samples = 300
+num_samples = 500
 δₜ = 0.1
 
 # generate training data
