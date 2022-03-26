@@ -38,7 +38,8 @@ struct ISSCTRNN0{P,Q1,Q2,Q3,F} <: Modifier
             get_sqrtΩ = (p) -> Ω_init
             get_sqrtΩinv = (p) -> Ω_init
         else
-            get_sqrtΩ = (p) -> 0.1 .+ log.(1.0 .+ p .^ 2) #Flux.huber_loss(zeros(state_dim), p, agg=identity)
+            # get_sqrtΩ = (p) -> 0.1 .+ log.(1.0 .+ p .^ 2) #Flux.huber_loss(zeros(state_dim), p, agg=identity)
+            get_sqrtΩ = (p) -> softmax(p)
             get_sqrtΩinv = (p) -> 1.0 ./ get_sqrtΩ(p)
 
             # get_sqrtΩ = (p) -> scale*(1.0.+exp.(-p.+shift))
