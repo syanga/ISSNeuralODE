@@ -16,7 +16,7 @@ struct Nominal{P} <: Modifier
     name::String
     param_size::Int
     initial_params::P
-    function Nominal(init=Flux.zeros)
+    function Nominal(init = Flux.zeros)
         initial_params() = init(0)
         new{typeof(initial_params)}("Nominal", 0, initial_params)
     end

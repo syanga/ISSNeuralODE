@@ -15,7 +15,7 @@ initial_params(f::Feedthrough) = f.initial_params()
 struct NoFeedthrough{I} <: Feedthrough
     initial_params::I
     paramsum::Int
-    function NoFeedthrough(initb=Flux.zeros)
+    function NoFeedthrough(initb = Flux.zeros)
         initial_params() = initb(0)
         new{typeof(initial_params)}(initial_params, 0)
     end

@@ -5,7 +5,6 @@ include("src/StableDynamics.jl")
 # set random seed
 Random.seed!(0);
 
-
 """ Generate synthetic training data """
 datapath = joinpath("data", "demo")
 if ~ispath(datapath)
@@ -22,17 +21,17 @@ function sample_params(n, m)
         return W, A, B
     end
     W, A, B = _sample()
-    while maximum(eigvals(W*A-I(n) + A'*W'-I(n))) >= 0
+    while maximum(eigvals(W * A - I(n) + A' * W' - I(n))) >= 0
         W, A, B = _sample()
     end
-    return W,A,B
+    return W, A, B
 end
 
 W, A, B = sample_params(n, m)
 
 # specify dynamics
-function f(x,u)
-    return -x + W*tanh.(A*x + B*u)
+function f(x, u)
+    return -x + W * tanh.(A * x + B * u)
 end
 
 # data parameters
@@ -51,54 +50,52 @@ ydata = zeros(n, length(times), num_samples)
 for i in ProgressBar(1:num_samples)
     # generate input signal
     tspan = (0.0, t_max)
-    knots = vcat(0.0, sort(t_max*rand(num_knots-2)), t_max)
+    knots = vcat(0.0, sort(t_max * rand(num_knots - 2)), t_max)
 
     peaks = zeros(2, num_knots)
-    for j=1:num_knots
-        peaks[:,j] = 2.0*(rand(2) .- 0.5)
+    for j = 1:num_knots
+        peaks[:, j] = 2.0 * (rand(2) .- 0.5)
     end
 
+    # linear interpolation for input
     u = (t) -> linear_interpolate(t, knots, peaks)
 
     # set initial condition to be equilibrium point
-    ssprob = SteadyStateProblem((x,p,t) -> f(x, u(0.0)), zeros(3))
+    ssprob = SteadyStateProblem((x, p, t) -> f(x, u(0.0)), zeros(3))
     x₀ = Array(solve(ssprob, SSRootfind()))
 
     # solve controlled ODE
-    prob = ODEProblem((x,p,t) -> f(x, u(t)), x₀, tspan)
-    y = Array(solve(prob, saveat=times, reltol=1e-6, absol=1e-9))
+    prob = ODEProblem((x, p, t) -> f(x, u(t)), x₀, tspan)
+    y = Array(solve(prob, saveat = times, solver = Tsit5(), reltol = 1e-6, absol = 1e-9))
 
-    for (j,s) in enumerate(times)
-        udata[:,j,i] = u(s)
+    for (j, s) in enumerate(times)
+        udata[:, j, i] = u(s)
     end
 
-    ydata[:,:,i] = y
+    ydata[:, :, i] = y
 end
 
+""" preprocess data """
 # dilate time
 t_scale = 10.0
 times *= t_scale
 
 # scale inputs and outputs
-umin = minimum(udata, dims=[2,3])
-umax = maximum(udata, dims=[2,3])
-ymin = minimum(ydata, dims=[2,3])
-ymax = maximum(ydata, dims=[2,3])
+umin = minimum(udata, dims = [2, 3])
+umax = maximum(udata, dims = [2, 3])
+ymin = minimum(ydata, dims = [2, 3])
+ymax = maximum(ydata, dims = [2, 3])
 
-uscale = 0.5*(umax-umin)
-yscale = 0.5*(ymax-ymin)
+uscale = 0.5 * (umax - umin)
+yscale = 0.5 * (ymax - ymin)
 
-ubias = -umin./uscale .- 1
-ybias = -ymin./yscale .- 1
+ubias = -umin ./ uscale .- 1
+ybias = -ymin ./ yscale .- 1
 
-udata = udata./uscale .+ ubias
-ydata = ydata./yscale .+ ybias
+udata = udata ./ uscale .+ ubias
+ydata = ydata ./ yscale .+ ybias
 
-dataset = Dict([
-    ("t", times),
-    ("u", udata),
-    ("y", ydata),
-])
+dataset = Dict([("t", times), ("u", udata), ("y", ydata)])
 
 metadata = Dict([
     ("dt", δₜ),
@@ -106,7 +103,7 @@ metadata = Dict([
     ("u_bias", ubias),
     ("y_scale", yscale),
     ("y_bias", ybias),
-    ("t_scale_factor", 1.0/t_scale),
+    ("t_scale_factor", 1.0 / t_scale),
 ])
 
 serialize("data/demo/demo_data.jls", dataset)
@@ -114,6 +111,5 @@ serialize("data/demo/demo_metadata.jls", metadata)
 
 
 """ Learn model """#
-
 include("configs/config_demo.jl")
 run_config(demo_config)

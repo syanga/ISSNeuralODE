@@ -89,15 +89,39 @@ mutable struct DynamicsTrainer{T,O,L,M,F,S,SA,OPT,SC,I,J,R,C,D}
     test_data_loader::D
     epoch_size::Int
 
-    function DynamicsTrainer(ode, link, mod, feedthrough, solver, sensealg, t::Array{T,1}, u::Array{T,3}, y::Array{T,3};  
-                             savepath="", dtype=Float64, validation_split=0.0, test_split=0.0, train_split=1.0-validation_split-test_split,
-                             abstol=dtype(1e-6), reltol=dtype(1e-3), dt=dtype(1.0), adaptive=false,
-                             initial_condition=solve_ss, 
-                             loss = Flux.Losses.mse, regularization=no_regularization, regularization_coef=dtype(0.0), optim=ADAMW(dtype(1e-3)), wdecay=WeightDecay(dtype(0.0)),
-                             sched=Step(λ=dtype(1e-3), γ=dtype(1.0), 1),
-                             batch_size=1, time_dropout=0.0, 
-                             time_horizon=size(u)[2], time_horizon_increment=0, time_horizon_max=time_horizon,
-                             callback_tasks=[]) where T
+    function DynamicsTrainer(
+        ode,
+        link,
+        mod,
+        feedthrough,
+        solver,
+        sensealg,
+        t::Array{T,1},
+        u::Array{T,3},
+        y::Array{T,3};
+        savepath = "",
+        dtype = Float64,
+        validation_split = 0.0,
+        test_split = 0.0,
+        train_split = 1.0 - validation_split - test_split,
+        abstol = dtype(1e-6),
+        reltol = dtype(1e-3),
+        dt = dtype(1.0),
+        adaptive = false,
+        initial_condition = solve_ss,
+        loss = Flux.Losses.mse,
+        regularization = no_regularization,
+        regularization_coef = dtype(0.0),
+        optim = ADAMW(dtype(1e-3)),
+        wdecay = WeightDecay(dtype(0.0)),
+        sched = Step(λ = dtype(1e-3), γ = dtype(1.0), 1),
+        batch_size = 1,
+        time_dropout = 0.0,
+        time_horizon = size(u)[2],
+        time_horizon_increment = 0,
+        time_horizon_max = time_horizon,
+        callback_tasks = [],
+    ) where {T}
         # metadata
         pl_ode = DiffEqFlux.paramlength(ode)
         pl_link = DiffEqFlux.paramlength(link)
@@ -109,23 +133,23 @@ mutable struct DynamicsTrainer{T,O,L,M,F,S,SA,OPT,SC,I,J,R,C,D}
 
         # optimization
         opt = Flux.Optimiser(optim, wdecay)
-        schedule = Stateful(sched)     
+        schedule = Stateful(sched)
 
         # data time step and time minibatching
         t0 = t[1]
-        time_batch = Integer(floor(time_horizon*(1.0-time_dropout)))
+        time_batch = Integer(floor(time_horizon * (1.0 - time_dropout)))
         time_idx = collect([1:1:time_batch;])
 
         # model parameters
         # p = vcat(Array{dtype,1}(initial_params(ode)), 
         #         Array{dtype,1}(initial_params(link)), 
         #         Array{dtype,1}(initial_params(mod)))
-        p = zeros(paramlength(ode)+paramlength(link)+paramlength(mod))
+        p = zeros(paramlength(ode) + paramlength(link) + paramlength(mod))
         p_opt = copy(p)
         loss_opt = dtype(Inf)
         not_improved = 0
         patience = 1
-	    logevery = 1
+        logevery = 1
 
         # counters and timers
         iteration = 0
@@ -149,22 +173,91 @@ mutable struct DynamicsTrainer{T,O,L,M,F,S,SA,OPT,SC,I,J,R,C,D}
         savepath = savepath
 
         # loss function and dataloaders
-        train_dl, valid_dl, test_dl = create_dataloaders(u, y, batch_size; validation_split=validation_split, test_split=test_split, train_split=train_split)
+        train_dl, valid_dl, test_dl = create_dataloaders(
+            u,
+            y,
+            batch_size;
+            validation_split = validation_split,
+            test_split = test_split,
+            train_split = train_split,
+        )
         epoch_size = length(train_dl)
 
-        new{dtype, typeof(ode), typeof(link), typeof(mod), typeof(feedthrough), typeof(solver), typeof(sensealg), typeof(opt), typeof(schedule), typeof(initial_condition), typeof(loss), typeof(regularization), typeof(callback_tasks), typeof(train_dl)}(
-            ode, link, mod, feedthrough,
-            pl_ode, pl_link, pl_mod, pl_feed,
-            state_dim, input_dim, output_dim,
-            solver, sensealg, abstol, reltol, dt, adaptive,
-            initial_condition, 
-            opt, schedule,
-            t0, t, time_batch, time_idx,
-            time_horizon, time_horizon_increment, time_horizon_max, time_horizons,
-            p, p_opt, loss_opt, not_improved, patience,
-            iteration, epoch, iteration_time, epoch_time,
-            callback_tasks, train_losses, epoch_train_losses, valid_losses, train_regularizations, epoch_train_regularizations, valid_regularizations, learn_rates, epoch_times, mod_stats_pre, mod_stats_post, verbose, logevery, savepath,
-            loss, regularization, regularization_coef, train_dl, valid_dl, test_dl, epoch_size)
+        new{
+            dtype,
+            typeof(ode),
+            typeof(link),
+            typeof(mod),
+            typeof(feedthrough),
+            typeof(solver),
+            typeof(sensealg),
+            typeof(opt),
+            typeof(schedule),
+            typeof(initial_condition),
+            typeof(loss),
+            typeof(regularization),
+            typeof(callback_tasks),
+            typeof(train_dl),
+        }(
+            ode,
+            link,
+            mod,
+            feedthrough,
+            pl_ode,
+            pl_link,
+            pl_mod,
+            pl_feed,
+            state_dim,
+            input_dim,
+            output_dim,
+            solver,
+            sensealg,
+            abstol,
+            reltol,
+            dt,
+            adaptive,
+            initial_condition,
+            opt,
+            schedule,
+            t0,
+            t,
+            time_batch,
+            time_idx,
+            time_horizon,
+            time_horizon_increment,
+            time_horizon_max,
+            time_horizons,
+            p,
+            p_opt,
+            loss_opt,
+            not_improved,
+            patience,
+            iteration,
+            epoch,
+            iteration_time,
+            epoch_time,
+            callback_tasks,
+            train_losses,
+            epoch_train_losses,
+            valid_losses,
+            train_regularizations,
+            epoch_train_regularizations,
+            valid_regularizations,
+            learn_rates,
+            epoch_times,
+            mod_stats_pre,
+            mod_stats_post,
+            verbose,
+            logevery,
+            savepath,
+            loss,
+            regularization,
+            regularization_coef,
+            train_dl,
+            valid_dl,
+            test_dl,
+            epoch_size,
+        )
     end
 end
 
@@ -172,15 +265,20 @@ end
     t: Array of time values corresponding to train and validation dataloaders 
     train_data_loader: dataloader given data with shape (input_dim, time_dim, data_size)
     valid_data_loader: dataloader given data with shape (input_dim, time_dim, data_size) """
-function train(f::DynamicsTrainer, num_epochs; 
-               p_init=initial_params(f), 
-               time_dropout=0.0, 
-               time_horizon=f.time_horizon,
-               time_horizon_increment=0,
-               time_horizon_max=f.time_horizon_max,
-               patience=1, logevery=1, verbose=true)
+function train(
+    f::DynamicsTrainer,
+    num_epochs;
+    p_init = initial_params(f),
+    time_dropout = 0.0,
+    time_horizon = f.time_horizon,
+    time_horizon_increment = 0,
+    time_horizon_max = f.time_horizon_max,
+    patience = 1,
+    logevery = 1,
+    verbose = true,
+)
     # time dropout
-    f.time_batch = Integer(floor(time_horizon*(1.0-time_dropout)))
+    f.time_batch = Integer(floor(time_horizon * (1.0 - time_dropout)))
     f.time_idx = collect([1:1:f.time_batch;])
 
     # time horizons
@@ -218,19 +316,25 @@ function train(f::DynamicsTrainer, num_epochs;
     f.epoch_time = time()
 
     # run training loop
-    Flux.train!((u,y)->forward(f,u,y), Flux.params(f.p), ncycle(f.train_data_loader, num_epochs), f.opt, cb=()->callback(f))
+    Flux.train!(
+        (u, y) -> forward(f, u, y),
+        Flux.params(f.p),
+        ncycle(f.train_data_loader, num_epochs),
+        f.opt,
+        cb = () -> callback(f),
+    )
     return f.p
 end
 
 """ Generate default initial model parameters """
-function initial_params(f::DynamicsTrainer; log_path="")
+function initial_params(f::DynamicsTrainer; log_path = "")
     if log_path == ""
         p_ode = initial_params(f.ode)
         p_link = initial_params(f.link)
         p_mod = initial_params(f.mod)
         p_feed = initial_params(f.feedthrough)
     else
-        logdict = deserialize(log_path);
+        logdict = deserialize(log_path)
         p_ode = logdict["p_ode"]
         p_link = logdict["p_link"]
         p_mod = logdict["p_mod"]
@@ -250,69 +354,119 @@ function extract_params(f::DynamicsTrainer)
 end
 
 """ Create dataloader using uniformly sampled input data """
-function create_dataloaders(u, y, batch_size; validation_split=0.0, test_split=0.0, train_split=1.0-validation_split-test_split, dataset_size=size(y)[3])
+function create_dataloaders(
+    u,
+    y,
+    batch_size;
+    validation_split = 0.0,
+    test_split = 0.0,
+    train_split = 1.0 - validation_split - test_split,
+    dataset_size = size(y)[3],
+)
     # set up data loaders: use first validation_split fraction of samples as the validation set
-    n_total = size(u,3)
-    n_train_samples = Integer(floor(dataset_size*train_split))
-    n_valid_samples = Integer(floor(dataset_size*validation_split))
-    n_test_samples = Integer(floor(dataset_size*test_split))
+    n_total = size(u, 3)
+    n_train_samples = Integer(floor(dataset_size * train_split))
+    n_valid_samples = Integer(floor(dataset_size * validation_split))
+    n_test_samples = Integer(floor(dataset_size * test_split))
 
     # randomly subsample
     shuffled_idx = randperm(n_total)
     valid_idx = shuffled_idx[1:n_valid_samples]
     test_idx = shuffled_idx[n_valid_samples+1:n_valid_samples+n_test_samples]
-    train_idx = shuffled_idx[n_valid_samples+n_test_samples+1:n_valid_samples+n_test_samples+n_train_samples]
+    train_idx =
+        shuffled_idx[n_valid_samples+n_test_samples+1:n_valid_samples+n_test_samples+n_train_samples]
 
     # create validation data loader using first n_valid_samples samples
     if n_valid_samples > 0
-        validation_data_loader = Flux.Data.DataLoader((u[:,:,valid_idx], y[:,:,valid_idx]); batchsize=batch_size, shuffle=true)
+        validation_data_loader = Flux.Data.DataLoader(
+            (u[:, :, valid_idx], y[:, :, valid_idx]);
+            batchsize = batch_size,
+            shuffle = true,
+        )
     else
-        validation_data_loader = Flux.Data.DataLoader((zeros(0,0,0),zeros(0,0,0)), batchsize=batch_size)
+        validation_data_loader =
+            Flux.Data.DataLoader((zeros(0, 0, 0), zeros(0, 0, 0)), batchsize = batch_size)
     end
 
     # create test data loader using next n_test_samples
     if n_test_samples > 0
-        test_data_loader = Flux.Data.DataLoader((u[:,:,test_idx], y[:,:,test_idx]); batchsize=batch_size, shuffle=true)
+        test_data_loader = Flux.Data.DataLoader(
+            (u[:, :, test_idx], y[:, :, test_idx]);
+            batchsize = batch_size,
+            shuffle = true,
+        )
     else
-        test_data_loader = Flux.Data.DataLoader((zeros(0,0,0),zeros(0,0,0)), batchsize=batch_size)
+        test_data_loader =
+            Flux.Data.DataLoader((zeros(0, 0, 0), zeros(0, 0, 0)), batchsize = batch_size)
     end
 
     # create training data loader using rest of data
     if n_train_samples > 0
-        train_data_loader = Flux.Data.DataLoader((u[:,:,train_idx], y[:,:,train_idx]); batchsize=batch_size, shuffle=true)
+        train_data_loader = Flux.Data.DataLoader(
+            (u[:, :, train_idx], y[:, :, train_idx]);
+            batchsize = batch_size,
+            shuffle = true,
+        )
     else
-        test_data_loader = Flux.Data.DataLoader((zeros(0,0,0),zeros(0,0,0)), batchsize=batch_size)
+        test_data_loader =
+            Flux.Data.DataLoader((zeros(0, 0, 0), zeros(0, 0, 0)), batchsize = batch_size)
     end
 
     return train_data_loader, validation_data_loader, test_data_loader
 end
 
 """ Takes dataloader output and compute model output """
-function predict(f::DynamicsTrainer, u; full=false)
+function predict(f::DynamicsTrainer, u; full = false)
     # extract parameters & apply modifier
     _, _, _, p_feed, p_ode, p_link = extract_params(f)
 
     # function to evaluate convert batch of interpolants
-    batch_interpolator(s) = @views linear_interpolate(s, f.t, full ? u : u[:,1:f.time_horizon,:])
+    batch_interpolator(s) =
+        @views linear_interpolate(s, f.t, full ? u : u[:, 1:f.time_horizon, :])
 
     # sample random times on which to compute loss
     Zygote.ignore() do
-        f.time_idx = vcat(1, sort((randperm(f.time_horizon-1).+1)[1:f.time_batch-1]))
+        f.time_idx = vcat(1, sort((randperm(f.time_horizon - 1).+1)[1:f.time_batch-1]))
     end
     t_batch = full ? f.t : @view f.t[f.time_idx]
     curr_batchsize = size(u)[3]
 
     # steady state solve with initial input for initial condition
-    u0 = u[:,1,:]
-    x0 = (f.initial_condition)(f.ode, u0, p_ode, f.state_dim, curr_batchsize; u0_guess=typeof(u0)(zeros(f.state_dim, curr_batchsize)))
+    u0 = u[:, 1, :]
+    x0 = (f.initial_condition)(
+        f.ode,
+        u0,
+        p_ode,
+        f.state_dim,
+        curr_batchsize;
+        u0_guess = typeof(u0)(zeros(f.state_dim, curr_batchsize)),
+    )
 
     # compute predicted trajectory
-    ȳ = evaluate_ode(f.ode, f.link, p_ode, p_link, batch_interpolator, x0, f.t0, t_batch, f.solver, f.state_dim, f.output_dim, curr_batchsize; 
-                     dynamics_scale=typeof(f.t0)(1.0), dt=f.dt, adaptive=f.adaptive, abstol=f.abstol, reltol=f.reltol, sensealg=f.sensealg)
+    ȳ = evaluate_ode(
+        f.ode,
+        f.link,
+        p_ode,
+        p_link,
+        batch_interpolator,
+        x0,
+        f.t0,
+        t_batch,
+        f.solver,
+        f.state_dim,
+        f.output_dim,
+        curr_batchsize;
+        dynamics_scale = typeof(f.t0)(1.0),
+        dt = f.dt,
+        adaptive = f.adaptive,
+        abstol = f.abstol,
+        reltol = f.reltol,
+        sensealg = f.sensealg,
+    )
 
     # add feedthrough
-    t_feed = @views full ? collect(1:size(u,2)) : f.time_idx
-    ŷ = f.feedthrough(ȳ, u[:,t_feed,:], p_feed)
+    t_feed = @views full ? collect(1:size(u, 2)) : f.time_idx
+    ŷ = f.feedthrough(ȳ, u[:, t_feed, :], p_feed)
     return ŷ
 end
 
@@ -325,17 +479,27 @@ function forward(f::DynamicsTrainer, u, y)
     if f.regularization_coef > 0.0
         _p_ode, _p_link, p_mod, p_feed, _, _ = extract_params(f)
 
-        reg = f.regularization_coef * (f.regularization)(f.ode, f.link, f.mod, f.feedthrough, _p_ode, _p_link, p_mod, p_feed)
-        batch_loss = @views (f.loss)(ŷ, y[:,f.time_idx,:]) + reg
+        reg =
+            f.regularization_coef * (f.regularization)(
+                f.ode,
+                f.link,
+                f.mod,
+                f.feedthrough,
+                _p_ode,
+                _p_link,
+                p_mod,
+                p_feed,
+            )
+        batch_loss = @views (f.loss)(ŷ, y[:, f.time_idx, :]) + reg
 
     else
-        batch_loss = @views (f.loss)(ŷ, y[:,f.time_idx,:])
+        batch_loss = @views (f.loss)(ŷ, y[:, f.time_idx, :])
         reg = 0.0
     end
 
     # save train loss and count iterations
     Zygote.ignore() do
-        push!(f.train_losses, batch_loss-reg)
+        push!(f.train_losses, batch_loss - reg)
         push!(f.train_regularizations, reg)
     end
 
@@ -349,26 +513,40 @@ function forward_validation(f::DynamicsTrainer, u, y)
 
     # compute loss
     _p_ode, _p_link, p_mod, p_feed, _, _ = extract_params(f)
-    reg = f.regularization_coef * (f.regularization)(f.ode, f.link, f.mod, f.feedthrough, _p_ode, _p_link, p_mod, p_feed)
-    batch_loss = @views (f.loss)(ŷ, y[:,f.time_idx,:]) + reg
+    reg =
+        f.regularization_coef * (f.regularization)(
+            f.ode,
+            f.link,
+            f.mod,
+            f.feedthrough,
+            _p_ode,
+            _p_link,
+            p_mod,
+            p_feed,
+        )
+    batch_loss = @views (f.loss)(ŷ, y[:, f.time_idx, :]) + reg
     return batch_loss, reg
 end
 
 """ Run once every training iteration """
 function callback(f::DynamicsTrainer)::Bool
     Zygote.ignore() do
-        iteration_time = time()-f.iteration_time
+        iteration_time = time() - f.iteration_time
         f.iteration += 1
 
         # print progress
         if f.verbose
-            print("Epoch progress: $(f.iteration%f.epoch_size)/$(f.epoch_size), time: $(round(iteration_time, digits=2)) s., loss: "*string(f.train_losses[end])*"\r")
+            print(
+                "Epoch progress: $(f.iteration%f.epoch_size)/$(f.epoch_size), time: $(round(iteration_time, digits=2)) s., loss: " *
+                string(f.train_losses[end]) *
+                "\r",
+            )
         end
 
         # do every epoch
         if f.iteration % f.epoch_size == 0 && f.iteration > 0
             # compute epoch time
-            epoch_time = time()-f.epoch_time
+            epoch_time = time() - f.epoch_time
             push!(f.epoch_times, epoch_time)
 
             # since first epoch time can be exceptionally long due to compilation time, replace first time with second 
@@ -386,7 +564,8 @@ function callback(f::DynamicsTrainer)::Bool
             push!(f.epoch_train_losses, epoch_train_loss)
 
             # compute epoch train regularizations
-            epoch_train_regularization = mean(f.train_regularizations[end-f.epoch_size+1:end])
+            epoch_train_regularization =
+                mean(f.train_regularizations[end-f.epoch_size+1:end])
             empty!(f.train_regularizations)
             push!(f.epoch_train_regularizations, epoch_train_regularization)
 
@@ -395,9 +574,9 @@ function callback(f::DynamicsTrainer)::Bool
             epoch_reg_valid = 0.0
             if f.valid_data_loader.batchsize > 0
                 for (u_val, y_val) in f.valid_data_loader
-                    batch_loss_vaid, reg_valid = forward_validation(f,u_val,y_val)
-                    epoch_valid_loss += batch_loss_vaid/length(f.valid_data_loader)
-                    epoch_reg_valid += reg_valid/length(f.valid_data_loader)
+                    batch_loss_vaid, reg_valid = forward_validation(f, u_val, y_val)
+                    epoch_valid_loss += batch_loss_vaid / length(f.valid_data_loader)
+                    epoch_reg_valid += reg_valid / length(f.valid_data_loader)
                 end
                 push!(f.valid_losses, epoch_valid_loss - epoch_reg_valid)
                 push!(f.valid_regularizations, epoch_reg_valid)
@@ -431,7 +610,7 @@ function callback(f::DynamicsTrainer)::Bool
             if (f.epoch % f.logevery == 0 && f.epoch > 0) || f.not_improved >= f.patience
                 # generate plots
                 logscale_metrics = Dict(
-                    "Train Loss" => f.epoch_train_losses, 
+                    "Train Loss" => f.epoch_train_losses,
                     "Validation Loss" => f.valid_losses,
                     "Learning Rate" => f.learn_rates,
                     "Train Regularization" => f.epoch_train_regularizations,
@@ -441,12 +620,16 @@ function callback(f::DynamicsTrainer)::Bool
                     "Epoch time" => f.epoch_times,
                     "Time Horizon" => f.time_horizons,
                     "Modifier Stat (nominal)" => f.mod_stats_pre,
-                    "Modifier Stat (constrained)" => f.mod_stats_post
+                    "Modifier Stat (constrained)" => f.mod_stats_post,
                 )
-                subplot_metrics(;logscale_plots=logscale_metrics, normal_plots=normal_metrics, savepath=f.savepath)
+                subplot_metrics(;
+                    logscale_plots = logscale_metrics,
+                    normal_plots = normal_metrics,
+                    savepath = f.savepath,
+                )
 
                 # save predicted vs. true trajectories plots in log
-                plot_samples(f; train_set=true, savepath=f.savepath)
+                plot_samples(f; train_set = true, savepath = f.savepath)
 
                 # write optimal parameters and logged training metrics
                 write_logs(f)
@@ -482,64 +665,120 @@ function callback(f::DynamicsTrainer)::Bool
 end
 
 """ Plot metrics on the left and right axes """
-function plot_metrics(;left_metrics=Dict(), right_metrics=Dict(), 
-                      ylabel_left="", ylabel_right="", xlabel="Epochs", leftlog=true, rightlog=false, savepath="", filename="metrics.png")
+function plot_metrics(;
+    left_metrics = Dict(),
+    right_metrics = Dict(),
+    ylabel_left = "",
+    ylabel_right = "",
+    xlabel = "Epochs",
+    leftlog = true,
+    rightlog = false,
+    savepath = "",
+    filename = "metrics.png",
+)
     # set up plot
-    metric_plot = plot(size=(1000, 550), margin=5*Plots.mm, left_margin=right_margin=23*Plots.mm, right_margin=23*Plots.mm, label="Training Loss", xlabel=xlabel)
+    metric_plot = plot(
+        size = (1000, 550),
+        margin = 5 * Plots.mm,
+        left_margin = right_margin = 23 * Plots.mm,
+        right_margin = 23 * Plots.mm,
+        label = "Training Loss",
+        xlabel = xlabel,
+    )
 
     for key in keys(left_metrics)
-        plot!(left_metrics[key], yaxis=leftlog ? :log10 : :none, linewidth = 4, label=key, ylabel=ylabel_left)
+        plot!(
+            left_metrics[key],
+            yaxis = leftlog ? :log10 : :none,
+            linewidth = 4,
+            label = key,
+            ylabel = ylabel_left,
+        )
     end
 
-    for (i,key) in enumerate(keys(right_metrics))
-        plot!(twinx(), right_metrics[key], linecolor=i+length(left_metrics), linewidth=4, label=key, legend=:right, yaxis=rightlog ? :log10 : :none, ylabel=ylabel_right)
+    for (i, key) in enumerate(keys(right_metrics))
+        plot!(
+            twinx(),
+            right_metrics[key],
+            linecolor = i + length(left_metrics),
+            linewidth = 4,
+            label = key,
+            legend = :right,
+            yaxis = rightlog ? :log10 : :none,
+            ylabel = ylabel_right,
+        )
     end
 
     # save figure
     if savepath != ""
-        savefig(metric_plot, joinpath(savepath, filename));
+        savefig(metric_plot, joinpath(savepath, filename))
     end
 end
 
 """ Plot metrics as subplots """
-function subplot_metrics(; logscale_plots=Dict(), normal_plots=Dict(), xlabel="Epochs", savepath="", filename="metrics.png")
+function subplot_metrics(;
+    logscale_plots = Dict(),
+    normal_plots = Dict(),
+    xlabel = "Epochs",
+    savepath = "",
+    filename = "metrics.png",
+)
     num_log = length(logscale_plots)
     num_normal = length(normal_plots)
     num_plots = num_log + num_normal
 
     lognames = vcat(sort([k for k in keys(logscale_plots)]))
     nornames = vcat(sort([k for k in keys(normal_plots)]))
-    labels = reshape(vcat(lognames,nornames), 1, num_plots)
-    ylabels = reshape(vcat(["Log "*k for k in lognames], nornames), 1, num_plots)
+    labels = reshape(vcat(lognames, nornames), 1, num_plots)
+    ylabels = reshape(vcat(["Log " * k for k in lognames], nornames), 1, num_plots)
 
-    logdata = log10.(cat([logscale_plots[k] for k in lognames]..., dims=2))
-    nordata = cat([normal_plots[k] for k in nornames]..., dims=2)
-    data = cat(logdata, nordata, dims=2)
+    logdata = log10.(cat([logscale_plots[k] for k in lognames]..., dims = 2))
+    nordata = cat([normal_plots[k] for k in nornames]..., dims = 2)
+    data = cat(logdata, nordata, dims = 2)
 
     hw = Int(ceil(sqrt(num_plots)))
-    plot(data, thickness_scaling=1.0 + 1.0/hw, layout=(num_log+num_normal), size=(500*hw, 400*hw), title=labels, ylabel=ylabels, legend = false)
+    plot(
+        data,
+        thickness_scaling = 1.0 + 1.0 / hw,
+        layout = (num_log + num_normal),
+        size = (500 * hw, 400 * hw),
+        title = labels,
+        ylabel = ylabels,
+        legend = false,
+    )
     xlabel!(xlabel)
     if savepath != ""
-        savefig(joinpath(savepath, filename));
+        savefig(joinpath(savepath, filename))
     end
 end
 
 """ Plot sample predictions """
-function plot_samples(f::DynamicsTrainer; train_set=true, savepath="")
+function plot_samples(f::DynamicsTrainer; train_set = true, savepath = "")
     u_val, y_val = train_set ? first(f.train_data_loader) : first(f.valid_data_loader)
-    predicted = predict(f, u_val; full=true)
+    predicted = predict(f, u_val; full = true)
 
     layout = (f.output_dim, 1)
 
-    for k=1:size(predicted)[3]
-        plotted = plot(f.t, y_val[:,:,k]', 
-                    label = "True", 
-                    marker = :circle, 
-                    linewidth = 4, size=(1000, f.output_dim*500), 
-                    margin=5*Plots.mm, 
-                    layout=layout)
+    for k = 1:size(predicted)[3]
+        plotted = plot(
+            f.t,
+            y_val[:, :, k]',
+            label = "True",
+            marker = :circle,
+            linewidth = 4,
+            size = (1000, f.output_dim * 500),
+            margin = 5 * Plots.mm,
+            layout = layout,
+        )
 
-        plot!(f.t, predicted[:,:,k]', label = "Predicted", marker = :circle, linewidth = 4, layout=layout)
+        plot!(
+            f.t,
+            predicted[:, :, k]',
+            label = "Predicted",
+            marker = :circle,
+            linewidth = 4,
+            layout = layout,
+        )
         xlabel!("Time")
         ylabel!("Output")
         savefig(plotted, joinpath(savepath, "predictions_$(k).png"))
@@ -570,5 +809,5 @@ function write_logs(f::DynamicsTrainer)
         "time_horizons" => f.time_horizons,
     )
 
-    serialize(joinpath(f.savepath, "log.jls"), log);
+    serialize(joinpath(f.savepath, "log.jls"), log)
 end

@@ -47,7 +47,8 @@
 
 using DiffEqFlux, Flux
 import DiffEqFlux: paramlength, initial_params
-using DifferentialEquations, DiffEqFlux, DiffEqSensitivity, SteadyStateDiffEq, Flux, Zygote, Random
+using DifferentialEquations,
+    DiffEqFlux, DiffEqSensitivity, SteadyStateDiffEq, Flux, Zygote, Random
 using IterTools: ncycle
 using ParameterSchedulers
 using ParameterSchedulers: Stateful, next!

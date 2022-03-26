@@ -14,7 +14,12 @@ struct BatchedInterpolator{F,T} <: Interpolator
 
         # assume all interpolators match first, use to set bounds and datatypes
         t_span = interpolators[1].t_span
-        new{typeof(Tuple(interpolators)), typeof(t_span[1])}(batch_size, input_dim, Tuple(interpolators), t_span)
+        new{typeof(Tuple(interpolators)),typeof(t_span[1])}(
+            batch_size,
+            input_dim,
+            Tuple(interpolators),
+            t_span,
+        )
     end
 end
 
@@ -43,7 +48,7 @@ function (f::LinearInterpolator)(t)
     t_left = f.times[idx]
     t_delta = f.times[idx+1] - t_left
     θ = (t - t_left) / t_delta
-    return (one(t)-θ)*f.data[:,idx] + θ*f.data[:,idx+1]
+    return (one(t) - θ) * f.data[:, idx] + θ * f.data[:, idx+1]
 end
 
 
@@ -51,33 +56,41 @@ end
 
 """ Interpolation functions """
 
-function linear_interpolate(t::T, times::AbstractArray{T,1}, data::AbstractArray{T,2}) where T
+function linear_interpolate(
+    t::T,
+    times::AbstractArray{T,1},
+    data::AbstractArray{T,2},
+) where {T}
     idx = findfirst(x -> x >= t, times) - 1
     idx == 0 ? idx += 1 : nothing
     t_left = times[idx]
     t_delta = times[idx+1] - t_left
     θ = (t - t_left) / t_delta
-    return (one(t)-θ)*data[:,idx] .+ θ*data[:,idx+1]
+    return (one(t) - θ) * data[:, idx] .+ θ * data[:, idx+1]
 end
 
-function linear_interpolate(t::T, times::AbstractArray{T,1}, data::AbstractArray{T,3}) where T
+function linear_interpolate(
+    t::T,
+    times::AbstractArray{T,1},
+    data::AbstractArray{T,3},
+) where {T}
     idx = findfirst(x -> x >= t, times) - 1
     idx == 0 ? idx += 1 : nothing
     t_left = times[idx]
     t_delta = times[idx+1] - t_left
     θ = (t - t_left) / t_delta
-    return (one(t)-θ)*data[:,idx,:] .+ θ*data[:,idx+1,:]
+    return (one(t) - θ) * data[:, idx, :] .+ θ * data[:, idx+1, :]
 end
 
-
-function linear_interpolate(t::T, times, data) where T
-    idx = findfirst(x -> x >= t, times) - 1
-    idx == 0 ? idx += 1 : nothing
-    t_left = times[idx]
-    t_delta = times[idx+1] - t_left
-    θ = (t - t_left) / t_delta
-    return (one(t)-θ)*data[:,idx,:] .+ θ*data[:,idx+1,:]
-end
+# # default: batch interpolation
+# function linear_interpolate(t::T, times, data) where {T}
+#     idx = findfirst(x -> x >= t, times) - 1
+#     idx == 0 ? idx += 1 : nothing
+#     t_left = times[idx]
+#     t_delta = times[idx+1] - t_left
+#     θ = (t - t_left) / t_delta
+#     return (one(t) - θ) * data[:, idx, :] .+ θ * data[:, idx+1, :]
+# end
 
 
 """ TODO: add more interpolation types """

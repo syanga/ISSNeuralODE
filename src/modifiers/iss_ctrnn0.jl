@@ -19,7 +19,15 @@ struct ISSCTRNN0{P,Q1,Q2,Q3,F} <: Modifier
     logτ_idx::UnitRange{Int}
     A_idx::UnitRange{Int}
     enable::Bool
-    function ISSCTRNN0(state_dim; enable=true, is_fixed=false, initb=Flux.zeros, ϵ=1e-3, scale=0.5, shift=-3.0)
+    function ISSCTRNN0(
+        state_dim;
+        enable = true,
+        is_fixed = false,
+        initb = Flux.zeros,
+        ϵ = 1e-3,
+        scale = 0.5,
+        shift = -3.0,
+    )
         # initial parameters
         initial_params() = vec(initb(state_dim))
 
@@ -30,12 +38,12 @@ struct ISSCTRNN0{P,Q1,Q2,Q3,F} <: Modifier
             get_sqrtΩ = (p) -> Ω_init
             get_sqrtΩinv = (p) -> Ω_init
         else
-            get_sqrtΩ = (p) -> 0.1 .+ log.(1.0.+p.^2) #Flux.huber_loss(zeros(state_dim), p, agg=identity)
-            get_sqrtΩinv = (p) -> 1.0./get_sqrtΩ(p)
+            get_sqrtΩ = (p) -> 0.1 .+ log.(1.0 .+ p .^ 2) #Flux.huber_loss(zeros(state_dim), p, agg=identity)
+            get_sqrtΩinv = (p) -> 1.0 ./ get_sqrtΩ(p)
 
             # get_sqrtΩ = (p) -> scale*(1.0.+exp.(-p.+shift))
             # get_sqrtΩinv = (p) -> sigmoid.(p.-shift)/scale
-            get_Ω = (p) -> get_sqrtΩ(p).^2
+            get_Ω = (p) -> get_sqrtΩ(p) .^ 2
         end
 
         # parameter indices: assume computed same way as by CTRNN0
@@ -47,24 +55,31 @@ struct ISSCTRNN0{P,Q1,Q2,Q3,F} <: Modifier
         # logτ_idx = subsystem.index_dict["logτ"]
         # A_idx = subsystem.index_dict["A"]
 
-        new{typeof(initial_params), typeof(get_Ω), typeof(get_sqrtΩ), typeof(get_sqrtΩinv), typeof(ϵ)}(
+        new{
+            typeof(initial_params),
+            typeof(get_Ω),
+            typeof(get_sqrtΩ),
+            typeof(get_sqrtΩinv),
+            typeof(ϵ),
+        }(
             "ISSCTRNN0",
             state_dim,
             state_dim,
-            initial_params, 
-            get_Ω, 
+            initial_params,
+            get_Ω,
             get_sqrtΩ,
             get_sqrtΩinv,
             ϵ,
             shift,
-            logτ_idx, 
+            logτ_idx,
             A_idx,
-            enable)
+            enable,
+        )
     end
 end
 
 """ Modify p_sub to guarantee stability """
-function (f::ISSCTRNN0)(p_sub, p_link, p; T=Float64, rhs=T(f.ϵ))
+function (f::ISSCTRNN0)(p_sub, p_link, p; T = Float64, rhs = T(f.ϵ))
     if f.enable
         # Ω = f.get_Ω(p)
         sqrtΩ = f.get_sqrtΩ(p)
@@ -73,10 +88,10 @@ function (f::ISSCTRNN0)(p_sub, p_link, p; T=Float64, rhs=T(f.ϵ))
         τ = exp.(@view p_sub[f.logτ_idx])
         A = reshape(view(p_sub, f.A_idx), f.state_dim, f.state_dim)
 
-        mat = T(0.5)*τ.*((sqrtΩ.*A)'.*invsqrtΩ)'
-        factor = one(T)/(one(T) + relu(maxeig(mat + mat') - one(T) + T(f.ϵ)))
+        mat = T(0.5) * τ .* ((sqrtΩ .* A)' .* invsqrtΩ)'
+        factor = one(T) / (one(T) + relu(maxeig(mat + mat') - one(T) + T(f.ϵ)))
 
-        _p_sub = vcat(p_sub[1], factor*vec(A), p_sub[f.A_idx[end]+1:end])
+        _p_sub = vcat(p_sub[1], factor * vec(A), p_sub[f.A_idx[end]+1:end])
 
         return _p_sub, p_link
     else
@@ -91,7 +106,7 @@ function debug(f::ISSCTRNN0, p_sub, p_link, p)
     τ = exp.(@view p_sub[f.logτ_idx])
     A = reshape(view(p_sub, f.A_idx), f.state_dim, f.state_dim)
 
-    mat = τ.*Ω.*A - diagm(Ω)
+    mat = τ .* Ω .* A - diagm(Ω)
     return maxeig(mat + mat')
 end
 
@@ -119,7 +134,14 @@ struct ISSCTRNN0Alt{P,Q1,Q2,Q3,F} <: Modifier
     logτ_idx::UnitRange{Int}
     A_idx::UnitRange{Int}
     enable::Bool
-    function ISSCTRNN0Alt(state_dim; enable=true, is_fixed=false, initb=Flux.zeros, ϵ=1e-3, lb=-3.0)
+    function ISSCTRNN0Alt(
+        state_dim;
+        enable = true,
+        is_fixed = false,
+        initb = Flux.zeros,
+        ϵ = 1e-3,
+        lb = -3.0,
+    )
         # initial parameters
         initial_params() = vec(initb(state_dim))
 
@@ -131,8 +153,8 @@ struct ISSCTRNN0Alt{P,Q1,Q2,Q3,F} <: Modifier
             get_sqrtΩinv = (p) -> Ω_init
         else
             get_sqrtΩ = (p) -> 0.5 .+ exp.(p) #log.(1.0.+p.^2)
-            get_sqrtΩinv = (p) -> 1.0./get_sqrtΩ(p)
-            get_Ω = (p) -> get_sqrtΩ(p).^2
+            get_sqrtΩinv = (p) -> 1.0 ./ get_sqrtΩ(p)
+            get_Ω = (p) -> get_sqrtΩ(p) .^ 2
         end
 
         # parameter indices: assume computed same way as by CTRNN0
@@ -144,24 +166,31 @@ struct ISSCTRNN0Alt{P,Q1,Q2,Q3,F} <: Modifier
         # logτ_idx = subsystem.index_dict["logτ"]
         # A_idx = subsystem.index_dict["A"]
 
-        new{typeof(initial_params), typeof(get_Ω), typeof(get_sqrtΩ), typeof(get_sqrtΩinv), typeof(ϵ)}(
+        new{
+            typeof(initial_params),
+            typeof(get_Ω),
+            typeof(get_sqrtΩ),
+            typeof(get_sqrtΩinv),
+            typeof(ϵ),
+        }(
             "ISSCTRNN0Alt",
             state_dim,
             state_dim,
-            initial_params, 
-            get_Ω, 
+            initial_params,
+            get_Ω,
             get_sqrtΩ,
             get_sqrtΩinv,
             ϵ,
             lb,
-            logτ_idx, 
+            logτ_idx,
             A_idx,
-            enable)
+            enable,
+        )
     end
 end
 
 """ Modify p_sub to guarantee stability """
-function (f::ISSCTRNN0Alt)(p_sub, p_link, p; T=Float64, rhs=T(f.ϵ))
+function (f::ISSCTRNN0Alt)(p_sub, p_link, p; T = Float64, rhs = T(f.ϵ))
     if f.enable
         sqrtΩ = f.get_sqrtΩ(p)
         Ω = f.get_Ω(p)
@@ -170,10 +199,10 @@ function (f::ISSCTRNN0Alt)(p_sub, p_link, p; T=Float64, rhs=T(f.ϵ))
         A = reshape(view(p_sub, f.A_idx), f.state_dim, f.state_dim)
 
         # mat = T(0.5)*τ.*((sqrtΩ.*A)'.*sqrtΩ)'
-        mat = T(0.5)*τ.*sqrtΩ.*A
-        factor = one(T)/(one(T) + relu(maxeig(mat + mat') - one(T) + T(f.ϵ)))
+        mat = T(0.5) * τ .* sqrtΩ .* A
+        factor = one(T) / (one(T) + relu(maxeig(mat + mat') - one(T) + T(f.ϵ)))
 
-        _p_sub = vcat(p_sub[1], factor*vec((A'.*sqrtΩ)'), p_sub[f.A_idx[end]+1:end])
+        _p_sub = vcat(p_sub[1], factor * vec((A' .* sqrtΩ)'), p_sub[f.A_idx[end]+1:end])
 
         return _p_sub, p_link
     else
@@ -188,6 +217,6 @@ function debug(f::ISSCTRNN0Alt, p_sub, p_link, p)
     τ = exp.(@view p_sub[f.logτ_idx])
     A = reshape(view(p_sub, f.A_idx), f.state_dim, f.state_dim)
 
-    mat = τ.*Ω.*A - diagm(Ω)
+    mat = τ .* Ω .* A - diagm(Ω)
     return maxeig(mat + mat')
 end
