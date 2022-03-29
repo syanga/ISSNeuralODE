@@ -1,6 +1,8 @@
 using ProgressBars, Printf, LinearAlgebra, Random
 
-include("src/StableDynamics.jl")
+include("src/ISSNeuralODE.jl")
+include("src/netlist.jl")
+
 
 # set random seed
 Random.seed!(0);

@@ -1,7 +1,5 @@
 using Plots: display
 using Serialization
-include("../src/StableDynamics.jl")
-include("../src/netlist.jl")
 
 
 demo_config = TrainConfig(

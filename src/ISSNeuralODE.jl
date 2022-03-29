@@ -1,4 +1,4 @@
-""" StableDynamics
+""" ISSNeuralODE
 
     Dynamics models of the form
         dxdt = f(x,u)

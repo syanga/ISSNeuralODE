@@ -82,16 +82,6 @@ function linear_interpolate(
     return (one(t) - θ) * data[:, idx, :] .+ θ * data[:, idx+1, :]
 end
 
-# # default: batch interpolation
-# function linear_interpolate(t::T, times, data) where {T}
-#     idx = findfirst(x -> x >= t, times) - 1
-#     idx == 0 ? idx += 1 : nothing
-#     t_left = times[idx]
-#     t_delta = times[idx+1] - t_left
-#     θ = (t - t_left) / t_delta
-#     return (one(t) - θ) * data[:, idx, :] .+ θ * data[:, idx+1, :]
-# end
-
 
 """ TODO: add more interpolation types """
 # https://github.com/PumasAI/DataInterpolations.jl/blob/master/src/interpolation_methods.jl
